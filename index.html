@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声の解析</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #fdf3e7 0%, #f0e6d3 40%, #e8d5c2 100%);
+    font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+  }
+  header {
+    padding: 32px 24px 24px;
+    background: linear-gradient(180deg, #f7ece0 0%, transparent 100%);
+    text-align: center;
+    border-bottom: 1px solid #e8d0b8;
+  }
+  header .icon { font-size: 36px; margin-bottom: 6px; }
+  header h1 { font-size: 22px; font-weight: 700; color: #3d2b1a; letter-spacing: 0.02em; }
+  header p { margin-top: 6px; font-size: 13px; color: #9a7060; }
+
+  .container { max-width: 480px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  .card {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 14px;
+    border: 1px solid #e8d0b8;
+    box-shadow: 0 4px 20px rgba(160,100,60,0.08);
+  }
+  .card-purple {
+    background: rgba(248,245,255,0.9);
+    border-color: #d8cce8;
+    box-shadow: 0 4px 20px rgba(100,80,160,0.07);
+  }
+
+  /* Optional inputs */
+  .opt-label { font-size: 12px; color: #b0806a; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .opt-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .opt-row select, .opt-row input {
+    flex: 1; padding: 9px 10px; border-radius: 10px;
+    border: 1.5px solid #d8bfa8; background: #fffaf6;
+    color: #3d2b1a; font-size: 13px; font-family: inherit; outline: none;
+    transition: border-color 0.2s;
+  }
+  .opt-row select:focus, .opt-row input:focus { border-color: #c08060; box-shadow: 0 0 0 3px rgba(192,128,96,0.15); }
+
+  /* Record button */
+  .rec-center { text-align: center; }
+  #recBtn {
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 3px solid #d4956a;
+    background: linear-gradient(145deg, #e8a070, #c06840);
+    cursor: pointer;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 6px 20px rgba(160,80,40,0.25);
+    transition: all 0.3s ease;
+    font-family: inherit;
+  }
+  #recBtn.recording {
+    border-color: #e07060;
+    background: linear-gradient(145deg, #f08070, #d05040);
+    box-shadow: 0 0 0 10px rgba(224,112,96,0.15), 0 6px 20px rgba(200,80,60,0.3);
+    animation: pulse 1.5s infinite;
+  }
+  #recBtn .btn-icon { font-size: 32px; }
+  #recBtn .btn-label { font-size: 11px; color: white; margin-top: 4px; font-weight: 600; }
+  .rec-timer { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #e07060; animation: blink 1s infinite; }
+  .rec-time { font-size: 18px; font-weight: 700; color: #c05040; font-variant-numeric: tabular-nums; }
+  .analyzing { margin-top: 14px; color: #9a7060; font-size: 14px; text-align: center; }
+  .error-box { margin-top: 14px; padding: 10px 14px; background: #fff0ed; border: 1px solid #f0a898; border-radius: 10px; color: #c05040; font-size: 13px; }
+
+  /* Score ring area */
+  .score-row { display: flex; align-items: center; gap: 20px; }
+  .score-label { font-size: 13px; color: #9a7060; margin-bottom: 2px; }
+  .score-msg { font-size: 15px; font-weight: 700; color: #4a3020; margin-bottom: 12px; }
+  .score-detail { font-size: 13px; color: #6a5040; line-height: 1.8; }
+  .ref-badge { margin-left: 6px; font-size: 11px; }
+  .ref-ok { color: #5a9a6a; } .ref-ng { color: #c07050; }
+
+  /* Chart titles */
+  .chart-title { font-size: 15px; font-weight: 600; color: #4a3020; margin-bottom: 4px; }
+  .chart-title-purple { color: #3a2860; }
+  .chart-sub { font-size: 12px; color: #a08070; margin-bottom: 14px; }
+  .chart-sub-purple { color: #9080b0; }
+  .formant-stats { margin-top: 10px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: #7a5a48; }
+
+  /* Accordion */
+  .accordion { margin-bottom: 10px; border-radius: 14px; overflow: hidden; border: 1px solid #e2cdb8; background: #fffaf5; }
+  .acc-btn {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; background: none; border: none; cursor: pointer;
+    font-family: 'Noto Sans JP', sans-serif; font-size: 15px; font-weight: 600; color: #5a3e2b;
+    text-align: left;
+  }
+  .acc-arrow { font-size: 20px; color: #c0956a; transition: transform 0.2s; }
+  .acc-arrow.open { transform: rotate(180deg); }
+  .acc-body { padding: 0 18px 18px; display: none; }
+  .acc-body.open { display: block; }
+  .metric-row { padding: 10px 0; border-bottom: 1px solid #f0e0d0; }
+  .metric-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .metric-name { font-size: 14px; color: #5a3e2b; }
+  .metric-val { font-size: 16px; font-weight: 700; color: #8b5030; }
+  .metric-desc { font-size: 11px; color: #b09070; margin-top: 2px; }
+  .hint-text { font-size: 14px; color: #5a3e2b; line-height: 1.8; }
+  .hint-text p { margin-bottom: 6px; }
+  .info-text { font-size: 13px; color: #6a5040; line-height: 1.8; }
+  .info-text p { margin-bottom: 8px; }
+
+  canvas { border-radius: 12px; display: block; width: 100%; }
+
+  @keyframes pulse {
+    0%,100%{box-shadow:0 0 0 10px rgba(224,112,96,0.15),0 6px 20px rgba(200,80,60,0.3)}
+    50%{box-shadow:0 0 0 18px rgba(224,112,96,0.05),0 6px 20px rgba(200,80,60,0.3)}
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .fade-in { animation: fadeIn 0.5s ease; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon">🎙️</div>
+  <h1>声の解析</h1>
+  <p>録音して、あなたの声を分析しましょう</p>
+</header>
+
+<div class="container">
+
+  <!-- Recording Card -->
+  <div class="card">
+    <div class="opt-label">オプション：年齢・性別を入力すると、個別の基準値と比較できます</div>
+    <div class="opt-row">
+      <select id="genderSel">
+        <option value="">性別（任意）</option>
+        <option value="male">男性</option>
+        <option value="female">女性</option>
+      </select>
+      <input type="number" id="ageInput" placeholder="年齢（任意）" min="5" max="100">
+    </div>
+    <div class="rec-center">
+      <button id="recBtn" onclick="toggleRecording()">
+        <span class="btn-icon">🎤</span>
+        <span class="btn-label">録音</span>
+      </button>
+      <div class="rec-timer hidden" id="timerRow">
+        <span class="rec-dot"></span>
+        <span class="rec-time" id="timerDisplay">0:00</span>
+      </div>
+      <div class="analyzing hidden" id="analyzingMsg">🔍 解析中...</div>
+      <div class="error-box hidden" id="errorBox"></div>
+    </div>
+  </div>
+
+  <!-- Results (hidden until analysis done) -->
+  <div id="results" class="hidden">
+
+    <!-- Score Card -->
+    <div class="card fade-in">
+      <div class="score-row">
+        <canvas id="scoreCanvas" width="130" height="130" style="width:130px;flex-shrink:0"></canvas>
+        <div style="flex:1">
+          <div class="score-label">音声スコア</div>
+          <div class="score-msg" id="scoreMsg"></div>
+          <div class="score-detail" id="scoreDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F1×F2 Scatter -->
+    <div class="card fade-in">
+      <div class="chart-title">🗺 フォルマント分布（F1 × F2）</div>
+      <div class="chart-sub">点が母音の円に重なるほど明瞭な発音です</div>
+      <canvas id="scatterCanvas" width="400" height="300"></canvas>
+      <div class="formant-stats" id="formantStats"></div>
+    </div>
+
+    <!-- F0-F3 Timeline -->
+    <div class="card card-purple fade-in">
+      <div class="chart-title chart-title-purple">📈 フォルマント時系列（F0–F3）</div>
+      <div class="chart-sub chart-sub-purple">時間の流れでピッチと共鳴がどう変化したかを見ます</div>
+      <canvas id="timelineCanvas" width="500" height="300"></canvas>
+    </div>
+
+    <!-- Accordions -->
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>📊 詳細な音響指標</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body" id="metricsBody"></div>
+    </div>
+
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>💬 改善のヒント</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body" id="hintsBody"></div>
+    </div>
+
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>📖 フォルマントについて</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body">
+        <div class="info-text">
+          <p><b>F0（基本周波数）</b>：声帯の振動数。音の高さに対応します。</p>
+          <p><b>F1</b>：口の開き具合に関係。高いほど口が大きく開いた音（「あ」など）。</p>
+          <p><b>F2</b>：舌の前後位置に関係。高いほど舌が前に来た音（「い」など）。</p>
+          <p><b>F3</b>：個人差が大きく、声の個性（音色）を決める要素の一つ。</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+</div><!-- /container -->
+
+<script>
+// ==================== DSP ====================
+function hammingWindow(n, N) { return 0.54 - 0.46 * Math.cos(2 * Math.PI * n / (N - 1)); }
+
+function fft(re, im) {
+  const N = re.length; if (N <= 1) return;
+  const h = N >> 1;
+  const re0 = new Float32Array(h), im0 = new Float32Array(h);
+  const re1 = new Float32Array(h), im1 = new Float32Array(h);
+  for (let i = 0; i < h; i++) { re0[i]=re[2*i]; im0[i]=im[2*i]; re1[i]=re[2*i+1]; im1[i]=im[2*i+1]; }
+  fft(re0, im0); fft(re1, im1);
+  for (let k = 0; k < h; k++) {
+    const a = -2*Math.PI*k/N, c = Math.cos(a), s = Math.sin(a);
+    const tr = c*re1[k]-s*im1[k], ti = s*re1[k]+c*im1[k];
+    re[k]=re0[k]+tr; im[k]=im0[k]+ti; re[k+h]=re0[k]-tr; im[k+h]=im0[k]-ti;
+  }
+}
+
+function detectF0(sig, sr) {
+  const minL = Math.floor(sr/500), maxL = Math.floor(sr/60);
+  let best = -1, bestC = -Infinity;
+  for (let lag = minL; lag <= maxL && lag < sig.length; lag++) {
+    let c = 0; for (let i = 0; i < sig.length - lag; i++) c += sig[i]*sig[i+lag];
+    if (c > bestC) { bestC = c; best = lag; }
+  }
+  return best > 0 ? sr / best : 0;
+}
+
+function computeFormants(sig, sr) {
+  const N = sig.length, order = 12;
+  const r = new Float32Array(order+1);
+  for (let i = 0; i <= order; i++) for (let j = 0; j < N-i; j++) r[i] += sig[j]*sig[j+i];
+  const a = new Float32Array(order+1), e = new Float32Array(order+1);
+  a[0]=1; e[0]=r[0];
+  for (let i = 1; i <= order; i++) {
+    let lam = 0; for (let j = 0; j < i; j++) lam -= a[j]*r[i-j];
+    if (!e[i-1]) break; lam /= e[i-1];
+    const tmp = a.slice();
+    for (let j = 0; j <= i; j++) a[j] = tmp[j] + lam*(tmp[i-j]||0);
+    e[i] = (1 - lam*lam)*e[i-1];
+  }
+  const nF = 512, re = new Float32Array(nF), im = new Float32Array(nF);
+  for (let i = 0; i <= order; i++) re[i] = a[i]||0;
+  fft(re, im);
+  const spec = new Float32Array(nF/2);
+  for (let i = 0; i < nF/2; i++) {
+    const m = Math.sqrt(re[i]*re[i]+im[i]*im[i]);
+    spec[i] = m > 0 ? -20*Math.log10(m) : 0;
+  }
+  const peaks = [];
+  for (let i = 1; i < spec.length-1; i++)
+    if (spec[i]>spec[i-1] && spec[i]>spec[i+1]) peaks.push({freq: i*sr/nF, amp: spec[i]});
+  peaks.sort((a,b)=>b.amp-a.amp);
+  return peaks.filter(p=>p.freq>200&&p.freq<4000).slice(0,4).sort((a,b)=>a.freq-b.freq).map(f=>Math.round(f.freq));
+}
+
+function analyzeAudio(buf, sr) {
+  const fSize = 2048, hop = 512;
+  const frames = [];
+  for (let s = 0; s + fSize < buf.length; s += hop) frames.push(buf.slice(s, s+fSize));
+
+  const raw = frames.map((fr, idx) => {
+    let rms = 0; for (const v of fr) rms += v*v; rms = Math.sqrt(rms/fr.length);
+    const f0 = detectF0(fr, sr);
+    const formants = computeFormants(fr, sr);
+    return { t: idx*hop/sr, f0, formants, rms };
+  });
+
+  const maxRms = Math.max(...raw.map(r=>r.rms));
+  const voiced = raw.filter(r=>r.rms>maxRms*0.1 && r.f0>60 && r.f0<500);
+  const allF0 = voiced.map(r=>r.f0);
+  const avgF0 = allF0.length ? allF0.reduce((a,b)=>a+b,0)/allF0.length : 0;
+  const maxF0 = allF0.length ? Math.max(...allF0) : 0;
+  const minF0 = allF0.length ? Math.min(...allF0) : 0;
+  const jitter = allF0.length>1 ? allF0.slice(1).reduce((s,v,i)=>s+Math.abs(v-allF0[i]),0)/(allF0.length-1)/avgF0*100 : 0;
+
+  const active = raw.filter(r=>r.rms>maxRms*0.1);
+  const f1Avg = active.reduce((s,r)=>s+(r.formants[0]||0),0)/(active.length||1);
+  const f2Avg = active.reduce((s,r)=>s+(r.formants[1]||0),0)/(active.length||1);
+
+  let score = 100 - Math.min(jitter*2, 20);
+  if (avgF0<85||avgF0>255) score -= 5;
+  score = Math.round(Math.max(40, Math.min(99, score)));
+
+  return {
+    score, avgF0: Math.round(avgF0), maxF0: Math.round(maxF0), minF0: Math.round(minF0),
+    jitter: jitter.toFixed(2), f1Avg: Math.round(f1Avg), f2Avg: Math.round(f2Avg),
+    duration: buf.length/sr,
+    ts: active.map(r=>({ t:r.t, f0:r.f0, f1:r.formants[0]||0, f2:r.formants[1]||0, f3:r.formants[2]||0 }))
+  };
+}
+
+// ==================== RECORDING ====================
+let mediaRecorder, chunks = [], timerInterval, recSeconds = 0, isRecording = false;
+
+function toggleRecording() {
+  if (isRecording) stopRec(); else startRec();
+}
+
+async function startRec() {
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('results').classList.add('hidden');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+    mediaRecorder.onstop = processAudio;
+    mediaRecorder.start(100);
+    isRecording = true;
+    recSeconds = 0;
+    const btn = document.getElementById('recBtn');
+    btn.classList.add('recording');
+    btn.querySelector('.btn-icon').textContent = '⏹';
+    btn.querySelector('.btn-label').textContent = '停止';
+    document.getElementById('timerRow').classList.remove('hidden');
+    timerInterval = setInterval(()=>{
+      recSeconds++;
+      const m = Math.floor(recSeconds/60), s = String(recSeconds%60).padStart(2,'0');
+      document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+    }, 1000);
+  } catch(e) {
+    showError('マイクにアクセスできませんでした。ブラウザの設定を確認してください。');
+  }
+}
+
+function stopRec() {
+  if (mediaRecorder?.state==='recording') mediaRecorder.stop();
+  mediaRecorder?.stream?.getTracks().forEach(t=>t.stop());
+  isRecording = false;
+  clearInterval(timerInterval);
+  const btn = document.getElementById('recBtn');
+  btn.classList.remove('recording');
+  btn.querySelector('.btn-icon').textContent = '🎤';
+  btn.querySelector('.btn-label').textContent = '録音';
+  document.getElementById('timerRow').classList.add('hidden');
+  document.getElementById('analyzingMsg').classList.remove('hidden');
+}
+
+async function processAudio() {
+  try {
+    const blob = new Blob(chunks, {type:'audio/webm'});
+    const arrayBuf = await blob.arrayBuffer();
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const decoded = await ctx.decodeAudioData(arrayBuf);
+    const result = analyzeAudio(decoded.getChannelData(0), decoded.sampleRate);
+    document.getElementById('analyzingMsg').classList.add('hidden');
+    renderResults(result);
+  } catch(e) {
+    document.getElementById('analyzingMsg').classList.add('hidden');
+    showError('解析に失敗しました: ' + e.message);
+  }
+}
+
+// ==================== RENDER ====================
+function renderResults(d) {
+  const gender = document.getElementById('genderSel').value;
+  const age = document.getElementById('ageInput').value;
+  const hasRef = gender && age;
+  const refF0 = gender==='female' ? {min:165,max:255} : gender==='male' ? {min:85,max:155} : {min:85,max:255};
+
+  // Score ring
+  drawScoreRing(d.score);
+  document.getElementById('scoreMsg').textContent =
+    d.score>=80 ? '✨ とても安定した声です！' : d.score>=60 ? '👍 バランスの良い声です' : '💡 改善の余地があります';
+
+  let refHtml = '';
+  if (hasRef) {
+    const ok = d.avgF0>=refF0.min && d.avgF0<=refF0.max;
+    refHtml = `<span class="ref-badge ${ok?'ref-ok':'ref-ng'}">(${gender==='female'?'女性':'男性'}基準 ${refF0.min}–${refF0.max}Hz)</span>`;
+  }
+  document.getElementById('scoreDetail').innerHTML =
+    `🎵 平均ピッチ：<b>${d.avgF0} Hz</b>${refHtml}<br>⏱ 録音時間：<b>${d.duration.toFixed(1)}秒</b>`;
+
+  // Charts
+  drawScatter(d.ts);
+  drawTimeline(d.ts);
+
+  document.getElementById('formantStats').innerHTML =
+    `<span>平均F1：<b>${d.f1Avg} Hz</b></span><span>平均F2：<b>${d.f2Avg} Hz</b></span>`;
+
+  // Metrics accordion
+  const metrics = [
+    ['基本周波数（平均）', `${d.avgF0} Hz`, '声帯の1秒あたりの振動数'],
+    ['F0 レンジ', `${d.minF0} – ${d.maxF0} Hz`, '声の高低の幅'],
+    ['ジッター（不安定度）', `${d.jitter}%`, '3%以下が安定的と言われます'],
+    ['平均F1', `${d.f1Avg} Hz`, '口の開き具合の平均'],
+    ['平均F2', `${d.f2Avg} Hz`, '舌の前後位置の平均'],
+  ];
+  document.getElementById('metricsBody').innerHTML = metrics.map(([n,v,desc])=>`
+    <div class="metric-row">
+      <div class="metric-top"><span class="metric-name">${n}</span><span class="metric-val">${v}</span></div>
+      <div class="metric-desc">${desc}</div>
+    </div>`).join('');
+
+  // Hints
+  let hints = [];
+  if (Number(d.jitter) > 3) hints.push('ジッターが高めです。リラックスした状態で、ゆっくり深呼吸してから話すと声が安定します。');
+  if (hasRef && d.avgF0 < refF0.min) hints.push('ピッチが少し低めです。姿勢を正して、胸を開いて発声するとよいかもしれません。');
+  if (hasRef && d.avgF0 > refF0.max) hints.push('ピッチが少し高めです。喉をリラックスさせ、やや低めのトーンを意識してみましょう。');
+  if (d.score >= 75) hints.push('声のバランスがよいです！この調子で続けましょう。');
+  hints.push('フォルマント図で点が特定の母音エリアに偏っている場合、その母音の発音を意識的に練習するとよいでしょう。');
+  document.getElementById('hintsBody').innerHTML = `<div class="hint-text">${hints.map(h=>`<p>• ${h}</p>`).join('')}</div>`;
+
+  document.getElementById('results').classList.remove('hidden');
+}
+
+// ==================== DRAWING ====================
+function drawScoreRing(score) {
+  const c = document.getElementById('scoreCanvas');
+  const ctx = c.getContext('2d');
+  const W=130, H=130, cx=65, cy=65, r=52;
+  ctx.clearRect(0,0,W,H);
+  const circ = 2*Math.PI*r;
+  const dash = (score/100)*circ;
+  const color = score>=80?'#6db87a':score>=60?'#e0a850':'#e07060';
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI);
+  ctx.strokeStyle='#e8d5c0'; ctx.lineWidth=10; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+2*Math.PI*(score/100));
+  ctx.strokeStyle=color; ctx.lineWidth=10; ctx.lineCap='round'; ctx.stroke();
+  ctx.fillStyle='#5a3e2b'; ctx.font='bold 28px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(score, cx, cy-8);
+  ctx.fillStyle='#9a7060'; ctx.font='12px sans-serif'; ctx.fillText('/ 100', cx, cy+14);
+}
+
+function drawScatter(data) {
+  const c = document.getElementById('scatterCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const pad = {top:30,right:20,bottom:45,left:55};
+  const f1R=[200,1200], f2R=[500,3500];
+  const toX = f2 => pad.left + (1-(f2-f2R[0])/(f2R[1]-f2R[0]))*(W-pad.left-pad.right);
+  const toY = f1 => pad.top + ((f1-f1R[0])/(f1R[1]-f1R[0]))*(H-pad.top-pad.bottom);
+  ctx.clearRect(0,0,W,H);
+  const bg = ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#fdf8f3'); bg.addColorStop(1,'#f5ede2');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#e8d5c0'; ctx.lineWidth=0.8;
+  for (let f1=200;f1<=1200;f1+=200){const y=toY(f1);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();}
+  for (let f2=500;f2<=3500;f2+=500){const x=toX(f2);ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,H-pad.bottom);ctx.stroke();}
+  const vowels=[
+    {name:'あ',f1:800,f2:1200,color:'rgba(230,140,80,0.18)'},
+    {name:'い',f1:300,f2:2600,color:'rgba(100,180,120,0.18)'},
+    {name:'う',f1:400,f2:1200,color:'rgba(80,140,220,0.18)'},
+    {name:'え',f1:550,f2:2000,color:'rgba(200,100,180,0.18)'},
+    {name:'お',f1:500,f2:800,color:'rgba(200,200,60,0.18)'},
+  ];
+  vowels.forEach(v=>{
+    const x=toX(v.f2),y=toY(v.f1);
+    ctx.beginPath();ctx.arc(x,y,28,0,2*Math.PI);ctx.fillStyle=v.color;ctx.fill();
+    ctx.fillStyle='#b07050';ctx.font='bold 13px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(v.name,x,y);
+  });
+  data.forEach((d,i)=>{
+    if(!d.f1||!d.f2)return;
+    const x=toX(d.f2),y=toY(d.f1);
+    const p=i/data.length;
+    ctx.beginPath();ctx.arc(x,y,4,0,2*Math.PI);
+    ctx.fillStyle=`rgba(${Math.round(180-p*80)},${Math.round(100+p*40)},80,0.7)`;ctx.fill();
+  });
+  ctx.fillStyle='#8b6955';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('← F2 (Hz) →',W/2,H-6);
+  ctx.save();ctx.translate(14,H/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText('← F1 (Hz) →',0,0);ctx.restore();
+  ctx.fillStyle='#6b5040';ctx.font='10px sans-serif';ctx.textAlign='right';
+  for(let f1=200;f1<=1200;f1+=200)ctx.fillText(f1,pad.left-5,toY(f1)+4);
+  ctx.textAlign='center';
+  for(let f2=500;f2<=3500;f2+=500)ctx.fillText(f2,toX(f2),H-pad.bottom+14);
+}
+
+function drawTimeline(data) {
+  const c = document.getElementById('timelineCanvas');
+  const ctx = c.getContext('2d');
+  const W=c.width, H=c.height;
+  const pad={top:30,right:80,bottom:35,left:50};
+  const maxT = data.length ? data[data.length-1].t : 1;
+  const freqMax = 4000;
+  const toX = t => pad.left + (t/maxT)*(W-pad.left-pad.right);
+  const toY = f => pad.top + (1-Math.min(f,freqMax)/freqMax)*(H-pad.top-pad.bottom);
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#f3f0fa');bg.addColorStop(1,'#e8e0f5');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#d8ccec';ctx.lineWidth=0.7;
+  [500,1000,1500,2000,2500,3000,3500].forEach(f=>{
+    const y=toY(f);
+    ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+    ctx.fillStyle='#9070b0';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+    ctx.fillText(f+'Hz',pad.left-4,y);
+  });
+  const series=[
+    {key:'f0',color:'#e07060',label:'F0'},
+    {key:'f1',color:'#60a0d0',label:'F1'},
+    {key:'f2',color:'#50b870',label:'F2'},
+    {key:'f3',color:'#c070c0',label:'F3'},
+  ];
+  series.forEach(({key,color,label},si)=>{
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1.8;
+    let started=false;
+    data.forEach(d=>{
+      const v=d[key];if(!v||v<50)return;
+      const x=toX(d.t),y=toY(v);
+      if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    const lx=W-pad.right+10,ly=pad.top+si*22;
+    ctx.fillStyle=color;ctx.fillRect(lx,ly-8,14,8);
+    ctx.fillStyle='#5040a0';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    ctx.fillText(label,lx+18,ly);
+  });
+  ctx.fillStyle='#7060a0';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('時間 (秒)',W/2,H-4);
+  for(let i=0;i<=5;i++){
+    const t=(maxT*i)/5;
+    ctx.fillText(t.toFixed(1),toX(t),H-pad.bottom+14);
+  }
+}
+
+// ==================== UI HELPERS ====================
+function toggleAcc(btn) {
+  const arrow = btn.querySelector('.acc-arrow');
+  const body = btn.nextElementSibling;
+  arrow.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '⚠️ ' + msg;
+  el.classList.remove('hidden');
+}
+</script>
+</body>
+</html>
