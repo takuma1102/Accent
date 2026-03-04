@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>発音解析 / Pronunciation Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Lora:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fdf3e7 0%, #f0e6d3 40%, #e8d5c2 100%);
+  font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+}
+header {
+  padding: 28px 24px 20px;
+  background: linear-gradient(180deg, #f7ece0 0%, transparent 100%);
+  text-align: center;
+  border-bottom: 1px solid #e8d0b8;
+}
+header .icon { font-size: 34px; margin-bottom: 4px; }
+header h1 { font-size: 21px; font-weight: 700; color: #3d2b1a; font-family: 'Lora', serif; }
+header p { margin-top: 5px; font-size: 13px; color: #9a7060; }
+
+.container { max-width: 500px; margin: 0 auto; padding: 18px 14px 60px; }
+
+/* ---- CARDS ---- */
+.card {
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 12px;
+  border: 1px solid #e8d0b8;
+  box-shadow: 0 4px 18px rgba(160,100,60,0.08);
+}
+.card-purple {
+  background: rgba(248,245,255,0.92);
+  border-color: #d8cce8;
+  box-shadow: 0 4px 18px rgba(100,80,160,0.07);
+}
+.card-green {
+  background: rgba(245,252,247,0.92);
+  border-color: #b8dfc4;
+  box-shadow: 0 4px 18px rgba(60,140,80,0.07);
+}
+.card-red {
+  background: rgba(255,245,244,0.95);
+  border-color: #f0b8b0;
+  box-shadow: 0 4px 18px rgba(200,80,60,0.08);
+}
+
+/* ---- SECTION LABELS ---- */
+.step-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #d4956a; color: white; font-size: 12px; font-weight: 700;
+  margin-right: 8px; flex-shrink: 0;
+}
+.section-title {
+  display: flex; align-items: center;
+  font-size: 14px; font-weight: 700; color: #4a3020; margin-bottom: 12px;
+}
+
+/* ---- TEXT INPUT ---- */
+textarea#scriptInput {
+  width: 100%; min-height: 80px; padding: 12px 14px;
+  border-radius: 12px; border: 1.5px solid #d8bfa8;
+  background: #fffaf6; color: #3d2b1a; font-size: 15px;
+  font-family: 'Lora', serif; line-height: 1.6; resize: vertical;
+  outline: none; transition: border-color 0.2s;
+}
+textarea#scriptInput:focus { border-color: #c08060; box-shadow: 0 0 0 3px rgba(192,128,96,0.15); }
+textarea#scriptInput::placeholder { color: #c0a090; }
+
+.script-display {
+  font-family: 'Lora', serif; font-size: 16px; line-height: 1.9;
+  color: #3d2b1a; padding: 10px 0; letter-spacing: 0.01em;
+}
+.vowel-highlight {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
+/* ---- OPT ROW ---- */
+.opt-label { font-size: 11px; color: #b0806a; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 7px; }
+.opt-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.opt-row select, .opt-row input {
+  flex: 1; padding: 8px 10px; border-radius: 10px;
+  border: 1.5px solid #d8bfa8; background: #fffaf6;
+  color: #3d2b1a; font-size: 13px; font-family: inherit; outline: none;
+}
+.opt-row select:focus, .opt-row input:focus { border-color: #c08060; }
+
+/* ---- RECORD BUTTON ---- */
+.rec-center { text-align: center; }
+#recBtn {
+  width: 100px; height: 100px; border-radius: 50%;
+  border: 3px solid #d4956a;
+  background: linear-gradient(145deg, #e8a070, #c06840);
+  cursor: pointer;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(160,80,40,0.25);
+  transition: all 0.3s ease; font-family: inherit;
+}
+#recBtn.recording {
+  border-color: #e07060;
+  background: linear-gradient(145deg, #f08070, #d05040);
+  box-shadow: 0 0 0 10px rgba(224,112,96,0.15), 0 6px 20px rgba(200,80,60,0.3);
+  animation: pulse 1.5s infinite;
+}
+#recBtn .btn-icon { font-size: 28px; }
+#recBtn .btn-label { font-size: 11px; color: white; margin-top: 3px; font-weight: 600; }
+.rec-timer { margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #e07060; animation: blink 1s infinite; }
+.rec-time { font-size: 18px; font-weight: 700; color: #c05040; font-variant-numeric: tabular-nums; }
+.analyzing { margin-top: 12px; color: #9a7060; font-size: 14px; text-align: center; }
+.error-box { margin-top: 12px; padding: 10px 14px; background: #fff0ed; border: 1px solid #f0a898; border-radius: 10px; color: #c05040; font-size: 13px; }
+
+/* ---- SCORE RING ---- */
+.score-row { display: flex; align-items: center; gap: 18px; }
+.score-detail { font-size: 13px; color: #6a5040; line-height: 1.9; flex: 1; }
+.score-msg { font-size: 14px; font-weight: 700; color: #4a3020; margin-bottom: 10px; }
+
+/* ---- RECOGNITION ---- */
+.recog-row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.recog-box {
+  flex: 1; min-width: 120px; padding: 10px 14px;
+  border-radius: 12px; font-family: 'Lora', serif;
+}
+.recog-box .rb-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 4px; text-transform: uppercase; }
+.recog-box .rb-text { font-size: 15px; line-height: 1.6; }
+.rb-intended { background: #eef6ff; border: 1px solid #b8d4f0; }
+.rb-intended .rb-label { color: #4080b0; }
+.rb-intended .rb-text { color: #2a5080; }
+.rb-heard { background: #fff8ee; border: 1px solid #f0d4a0; }
+.rb-heard .rb-label { color: #a07020; }
+.rb-heard .rb-text { color: #705010; }
+
+.diff-section { margin-top: 10px; }
+.diff-label { font-size: 11px; font-weight: 700; color: #9a7060; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+.diff-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.diff-chip {
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-family: 'Lora', serif;
+  display: flex; align-items: center; gap: 5px;
+}
+.diff-chip.miss { background: #fff0ee; border: 1px solid #f0b0a0; color: #c04030; }
+.diff-chip.extra { background: #f0fff4; border: 1px solid #90d0a0; color: #307040; }
+.diff-chip.ok { background: #f0f8ff; border: 1px solid #a0c8f0; color: #205080; }
+.diff-arrow { color: #aaa; }
+
+/* ---- CHARTS ---- */
+.chart-title { font-size: 14px; font-weight: 700; color: #4a3020; margin-bottom: 3px; }
+.chart-title-purple { color: #3a2860; }
+.chart-sub { font-size: 11px; color: #a08070; margin-bottom: 12px; }
+.chart-sub-purple { color: #9080b0; }
+canvas { border-radius: 10px; display: block; width: 100%; }
+
+/* ---- VOWEL LEGEND ---- */
+.vowel-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.vl-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #7a5a48; }
+.vl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ---- METRICS ---- */
+.metric-row { padding: 9px 0; border-bottom: 1px solid #f0e0d0; }
+.metric-top { display: flex; justify-content: space-between; align-items: baseline; }
+.metric-name { font-size: 13px; color: #5a3e2b; }
+.metric-val { font-size: 15px; font-weight: 700; color: #8b5030; }
+.metric-desc { font-size: 11px; color: #b09070; margin-top: 1px; }
+
+/* ---- ACCORDION ---- */
+.accordion { margin-bottom: 10px; border-radius: 14px; overflow: hidden; border: 1px solid #e2cdb8; background: #fffaf5; }
+.acc-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; background: none; border: none; cursor: pointer;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 600; color: #5a3e2b;
+  text-align: left;
+}
+.acc-arrow { font-size: 18px; color: #c0956a; transition: transform 0.2s; display: inline-block; }
+.acc-arrow.open { transform: rotate(180deg); }
+.acc-body { padding: 0 18px 16px; display: none; }
+.acc-body.open { display: block; }
+.hint-text { font-size: 13px; color: #5a3e2b; line-height: 1.8; }
+.hint-text p { margin-bottom: 5px; }
+.info-text { font-size: 12px; color: #6a5040; line-height: 1.8; }
+.info-text p { margin-bottom: 6px; }
+
+@keyframes pulse {
+  0%,100%{box-shadow:0 0 0 10px rgba(224,112,96,0.15),0 6px 20px rgba(200,80,60,0.3)}
+  50%{box-shadow:0 0 0 18px rgba(224,112,96,0.05),0 6px 20px rgba(200,80,60,0.3)}
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fadeIn 0.4s ease; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon">🎙️</div>
+  <h1>Pronunciation Analyzer</h1>
+  <p>発音して、認識結果と音声特徴を確認しましょう</p>
+</header>
+
+<div class="container">
+
+  <!-- STEP 1: Script Input -->
+  <div class="card" id="step1Card">
+    <div class="section-title"><span class="step-badge">1</span>読む文章を入力してください</div>
+    <textarea id="scriptInput" placeholder="例: She sells seashells by the seashore.&#10;例: The early bird catches the worm."></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="sample-btn" onclick="setSample('She sells seashells by the seashore.')">🐚 Seashells</button>
+      <button class="sample-btn" onclick="setSample('The early bird catches the worm every morning.')">🐦 Early Bird</button>
+      <button class="sample-btn" onclick="setSample('How much wood would a woodchuck chuck?')">🪵 Woodchuck</button>
+      <button class="sample-btn" onclick="setSample('Peter Piper picked a peck of pickled peppers.')">🫑 Peter Piper</button>
+    </div>
+    <style>
+      .sample-btn {
+        padding: 5px 10px; border-radius: 20px; border: 1px solid #d8bfa8;
+        background: #fff8f2; color: #7a5a40; font-size: 11px; cursor: pointer;
+        font-family: inherit; transition: background 0.15s;
+      }
+      .sample-btn:hover { background: #f0e0d0; }
+    </style>
+    <!-- Vowel preview -->
+    <div id="vowelPreview" class="hidden" style="margin-top:14px">
+      <div style="font-size:11px;color:#b0806a;font-weight:600;margin-bottom:6px">含まれる母音（ハイライト表示）</div>
+      <div class="script-display" id="scriptHighlighted"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Record -->
+  <div class="card">
+    <div class="section-title"><span class="step-badge">2</span>録音して発音してください</div>
+    <div class="opt-label">オプション：個別の基準値と比較したい場合に入力</div>
+    <div class="opt-row">
+      <select id="genderSel">
+        <option value="">性別（任意）</option>
+        <option value="male">男性</option>
+        <option value="female">女性</option>
+      </select>
+      <input type="number" id="ageInput" placeholder="年齢（任意）" min="5" max="100">
+    </div>
+    <div class="rec-center">
+      <button id="recBtn" onclick="toggleRecording()">
+        <span class="btn-icon">🎤</span>
+        <span class="btn-label">録音</span>
+      </button>
+      <div class="rec-timer hidden" id="timerRow">
+        <span class="rec-dot"></span>
+        <span class="rec-time" id="timerDisplay">0:00</span>
+      </div>
+      <div class="analyzing hidden" id="analyzingMsg">🔍 解析中...</div>
+      <div class="error-box hidden" id="errorBox"></div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="hidden">
+
+    <!-- Recognition Comparison -->
+    <div class="card card-green fade-in">
+      <div class="section-title" style="margin-bottom:10px">
+        <span style="font-size:16px;margin-right:8px">👂</span>
+        <span style="font-size:14px;font-weight:700;color:#2a6040">音声認識の結果</span>
+      </div>
+      <div class="recog-row">
+        <div class="recog-box rb-intended">
+          <div class="rb-label">Intended（入力）</div>
+          <div class="rb-text" id="intendedText">—</div>
+        </div>
+        <div class="recog-box rb-heard">
+          <div class="rb-label">Heard（認識）</div>
+          <div class="rb-text" id="heardText">—</div>
+        </div>
+      </div>
+      <div class="diff-section" id="diffSection"></div>
+    </div>
+
+    <!-- Score -->
+    <div class="card fade-in">
+      <div class="score-row">
+        <canvas id="scoreCanvas" width="120" height="120" style="width:120px;flex-shrink:0"></canvas>
+        <div style="flex:1">
+          <div class="score-msg" id="scoreMsg"></div>
+          <div class="score-detail" id="scoreDetail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- F1×F2 Scatter (English + Japanese + Highlights) -->
+    <div class="card fade-in">
+      <div class="chart-title">🗺 Formant Map（F1 × F2）</div>
+      <div class="chart-sub">日英の母音マップ。①の文章に含まれる母音をハイライト表示</div>
+      <canvas id="scatterCanvas" width="440" height="310"></canvas>
+      <div class="vowel-legend" id="vowelLegend"></div>
+    </div>
+
+    <!-- F0-F3 Timeline -->
+    <div class="card card-purple fade-in">
+      <div class="chart-title chart-title-purple">📈 フォルマント時系列（F0–F3）</div>
+      <div class="chart-sub chart-sub-purple">発話中の周波数変化。認識された単語の区切りを縦線で表示</div>
+      <canvas id="timelineCanvas" width="500" height="300"></canvas>
+    </div>
+
+    <!-- Detailed Metrics -->
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>📊 詳細な音響指標</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body" id="metricsBody"></div>
+    </div>
+
+    <!-- Hints -->
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>💬 改善のヒント</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body" id="hintsBody"></div>
+    </div>
+
+    <!-- About formants -->
+    <div class="accordion">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span>📖 フォルマントについて</span><span class="acc-arrow">⌄</span>
+      </button>
+      <div class="acc-body">
+        <div class="info-text">
+          <p><b>F0（基本周波数）</b>：声帯の振動数。音の高さに対応します。</p>
+          <p><b>F1</b>：口の開き具合に関係。高いほど口が大きく開いた音（"a" in "father"、「あ」など）。</p>
+          <p><b>F2</b>：舌の前後位置に関係。高いほど舌が前に来た音（"ee" in "feet"、「い」など）。</p>
+          <p><b>F3</b>：個人差が大きく、声の個性（音色）を決める要素の一つ。</p>
+          <p>英語の母音は日本語より多く、F1×F2の空間に広く分布します。散布図で自分の声がどの母音に近いか確認できます。</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ===================== VOWEL DATA =====================
+// English vowels: {symbol, example, f1, f2, color, lang}
+const EN_VOWELS = [
+  { symbol:'iː', example:'f[ee]t',   f1:280,  f2:2730, color:'#e05050', lang:'en' },
+  { symbol:'ɪ',  example:'f[i]t',    f1:390,  f2:2300, color:'#e07830', lang:'en' },
+  { symbol:'e',  example:'b[e]t',    f1:530,  f2:1860, color:'#d0a020', lang:'en' },
+  { symbol:'æ',  example:'c[a]t',    f1:730,  f2:1720, color:'#50b030', lang:'en' },
+  { symbol:'ɑː', example:'f[a]ther', f1:800,  f2:1100, color:'#20a070', lang:'en' },
+  { symbol:'ɒ',  example:'l[o]t',    f1:700,  f2:1000, color:'#2090c0', lang:'en' },
+  { symbol:'ɔː', example:'th[ou]ght',f1:600,  f2:850,  color:'#4060d0', lang:'en' },
+  { symbol:'ʊ',  example:'f[oo]t',   f1:450,  f2:1100, color:'#7040c0', lang:'en' },
+  { symbol:'uː', example:'f[oo]d',   f1:310,  f2:870,  color:'#c040a0', lang:'en' },
+  { symbol:'ʌ',  example:'str[u]t',  f1:620,  f2:1180, color:'#c07060', lang:'en' },
+  { symbol:'ə',  example:'[a]bout',  f1:520,  f2:1500, color:'#808080', lang:'en' },
+  { symbol:'ɜː', example:'b[ir]d',   f1:490,  f2:1650, color:'#40a090', lang:'en' },
+];
+const JP_VOWELS = [
+  { symbol:'あ', example:'あ',f1:820, f2:1180, color:'#e87030', lang:'jp' },
+  { symbol:'い', example:'い',f1:310, f2:2700, color:'#50b050', lang:'jp' },
+  { symbol:'う', example:'う',f1:380, f2:1300, color:'#4080d0', lang:'jp' },
+  { symbol:'え', example:'え',f1:560, f2:2050, color:'#c050a0', lang:'jp' },
+  { symbol:'お', example:'お',f1:500, f2:820,  color:'#a0a020', lang:'jp' },
+];
+const ALL_VOWELS = [...EN_VOWELS, ...JP_VOWELS];
+
+// English letter→vowel mapping (rough IPA approximation for common patterns)
+const LETTER_VOWEL_MAP = {
+  // key: [grapheme patterns] -> vowel symbol
+};
+
+// Simple function: extract vowel letters from text and map to symbols
+function extractVowelsFromText(text) {
+  const lower = text.toLowerCase();
+  const found = new Set();
+  // Very rough mapping from common English spelling patterns to vowel symbols
+  const patterns = [
+    { re: /ee|ea(?!r)|ie(?!ld)/g,        v: 'iː' },
+    { re: /i(?=[^aeiou]e\b|gh|ght|nd|ld)/g, v: 'aɪ' },
+    { re: /\bi\b|i(?=[^aeiou]{1,2}(?:[^aeiou]|$))/g, v: 'ɪ' },
+    { re: /a(?=[^aeiou]e\b)|ai|ay/g,     v: 'eɪ' },
+    { re: /a(?=[^aeiou][^aeiou])/g,      v: 'æ' },
+    { re: /ar(?!e)/g,                    v: 'ɑː' },
+    { re: /oo(?!k)/g,                    v: 'uː' },
+    { re: /oo(?=k)/g,                    v: 'ʊ' },
+    { re: /ou|ow(?!n)/g,                 v: 'aʊ' },
+    { re: /o(?=[^aeiou]e\b)|oa|ow(?=n)/g,v: 'oʊ' },
+    { re: /or|aw|au/g,                   v: 'ɔː' },
+    { re: /u(?=[^aeiou]e\b)|ue|ew/g,    v: 'juː' },
+    { re: /u(?=[^aeiou][^aeiou])/g,      v: 'ʌ' },
+    { re: /er|ir|ur|ear(?=\b)/g,         v: 'ɜː' },
+    { re: /e(?=[^aeiou][^aeiou])/g,      v: 'e' },
+    { re: /\be\b/g,                      v: 'ə' },
+  ];
+  patterns.forEach(({re, v}) => { if(lower.match(re)) found.add(v); });
+  // Also add any JP vowels if text contains hiragana
+  if (/[あいうえお]/.test(text)) {
+    ['あ','い','う','え','お'].forEach(c => { if(text.includes(c)) found.add(c); });
+  }
+  return found;
+}
+
+// Highlight vowels in text (visual display)
+const VOWEL_COLORS_FOR_HIGHLIGHT = {
+  'iː':'#ffd0d0','ɪ':'#ffe0cc','e':'#fff0c0','æ':'#e0ffd0','ɑː':'#c0f0e0',
+  'ɒ':'#c0e8f8','ɔː':'#d0d0f8','ʊ':'#e8d0f8','uː':'#f8d0f0','ʌ':'#f8e0d8',
+  'ə':'#e8e8e8','ɜː':'#c8f0f0','あ':'#ffe0c0','い':'#d0f0d0','う':'#d0e8ff',
+  'え':'#f8d0f0','お':'#f8f0c0',
+};
+
+function buildHighlightedScript(text) {
+  // Simple vowel letter highlighting in English text
+  return text.replace(/([aeiouAEIOU])/g, ch => {
+    const color = '#f0e0c0';
+    return `<span class="vowel-highlight" style="background:${color};color:#7a4010">${ch}</span>`;
+  });
+}
+
+// ===================== DSP =====================
+function hammingWindow(n, N) { return 0.54 - 0.46 * Math.cos(2*Math.PI*n/(N-1)); }
+function fft(re, im) {
+  const N=re.length; if(N<=1)return;
+  const h=N>>1;
+  const r0=new Float32Array(h),i0=new Float32Array(h),r1=new Float32Array(h),i1=new Float32Array(h);
+  for(let i=0;i<h;i++){r0[i]=re[2*i];i0[i]=im[2*i];r1[i]=re[2*i+1];i1[i]=im[2*i+1];}
+  fft(r0,i0);fft(r1,i1);
+  for(let k=0;k<h;k++){
+    const a=-2*Math.PI*k/N,c=Math.cos(a),s=Math.sin(a);
+    const tr=c*r1[k]-s*i1[k],ti=s*r1[k]+c*i1[k];
+    re[k]=r0[k]+tr;im[k]=i0[k]+ti;re[k+h]=r0[k]-tr;im[k+h]=i0[k]-ti;
+  }
+}
+function detectF0(sig, sr) {
+  const minL=Math.floor(sr/500),maxL=Math.floor(sr/60);
+  let best=-1,bestC=-Infinity;
+  for(let lag=minL;lag<=maxL&&lag<sig.length;lag++){
+    let c=0;for(let i=0;i<sig.length-lag;i++)c+=sig[i]*sig[i+lag];
+    if(c>bestC){bestC=c;best=lag;}
+  }
+  return best>0?sr/best:0;
+}
+function computeFormants(sig, sr) {
+  const N=sig.length,order=12;
+  const r=new Float32Array(order+1);
+  for(let i=0;i<=order;i++)for(let j=0;j<N-i;j++)r[i]+=sig[j]*sig[j+i];
+  const a=new Float32Array(order+1),e=new Float32Array(order+1);
+  a[0]=1;e[0]=r[0];
+  for(let i=1;i<=order;i++){
+    let lam=0;for(let j=0;j<i;j++)lam-=a[j]*r[i-j];
+    if(!e[i-1])break;lam/=e[i-1];
+    const tmp=a.slice();
+    for(let j=0;j<=i;j++)a[j]=tmp[j]+lam*(tmp[i-j]||0);
+    e[i]=(1-lam*lam)*e[i-1];
+  }
+  const nF=512,re=new Float32Array(nF),im=new Float32Array(nF);
+  for(let i=0;i<=order;i++)re[i]=a[i]||0;
+  fft(re,im);
+  const spec=new Float32Array(nF/2);
+  for(let i=0;i<nF/2;i++){const m=Math.sqrt(re[i]*re[i]+im[i]*im[i]);spec[i]=m>0?-20*Math.log10(m):0;}
+  const peaks=[];
+  for(let i=1;i<spec.length-1;i++)
+    if(spec[i]>spec[i-1]&&spec[i]>spec[i+1])peaks.push({freq:i*sr/nF,amp:spec[i]});
+  peaks.sort((a,b)=>b.amp-a.amp);
+  return peaks.filter(p=>p.freq>200&&p.freq<4000).slice(0,4).sort((a,b)=>a.freq-b.freq).map(f=>Math.round(f.freq));
+}
+function analyzeAudio(buf, sr) {
+  const fSize=2048,hop=512;
+  const frames=[];
+  for(let s=0;s+fSize<buf.length;s+=hop)frames.push(buf.slice(s,s+fSize));
+  const raw=frames.map((fr,idx)=>{
+    let rms=0;for(const v of fr)rms+=v*v;rms=Math.sqrt(rms/fr.length);
+    return{t:idx*hop/sr,f0:detectF0(fr,sr),formants:computeFormants(fr,sr),rms};
+  });
+  const maxRms=Math.max(...raw.map(r=>r.rms));
+  const voiced=raw.filter(r=>r.rms>maxRms*0.1&&r.f0>60&&r.f0<500);
+  const allF0=voiced.map(r=>r.f0);
+  const avgF0=allF0.length?allF0.reduce((a,b)=>a+b,0)/allF0.length:0;
+  const maxF0=allF0.length?Math.max(...allF0):0;
+  const minF0=allF0.length?Math.min(...allF0):0;
+  const jitter=allF0.length>1?allF0.slice(1).reduce((s,v,i)=>s+Math.abs(v-allF0[i]),0)/(allF0.length-1)/avgF0*100:0;
+  const active=raw.filter(r=>r.rms>maxRms*0.1);
+  const f1Avg=active.reduce((s,r)=>s+(r.formants[0]||0),0)/(active.length||1);
+  const f2Avg=active.reduce((s,r)=>s+(r.formants[1]||0),0)/(active.length||1);
+  let score=100-Math.min(jitter*2,20);
+  if(avgF0<85||avgF0>255)score-=5;
+  score=Math.round(Math.max(40,Math.min(99,score)));
+  return{
+    score,avgF0:Math.round(avgF0),maxF0:Math.round(maxF0),minF0:Math.round(minF0),
+    jitter:jitter.toFixed(2),f1Avg:Math.round(f1Avg),f2Avg:Math.round(f2Avg),
+    duration:buf.length/sr,
+    ts:active.map(r=>({t:r.t,f0:r.f0,f1:r.formants[0]||0,f2:r.formants[1]||0,f3:r.formants[2]||0}))
+  };
+}
+
+// ===================== DIFF (word-level) =====================
+function wordDiff(intended, heard) {
+  const iWords = intended.toLowerCase().replace(/[^a-z\s]/g,'').trim().split(/\s+/);
+  const hWords = heard.toLowerCase().replace(/[^a-z\s]/g,'').trim().split(/\s+/);
+  const missed = [], extra = [], correct = [];
+  const hCopy = [...hWords];
+  iWords.forEach(w => {
+    const idx = hCopy.indexOf(w);
+    if(idx>=0){ correct.push(w); hCopy.splice(idx,1); }
+    else missed.push(w);
+  });
+  hCopy.forEach(w => extra.push(w));
+  return { missed, extra, correct };
+}
+
+// ===================== RECORDING =====================
+let mediaRecorder, chunks=[], timerInterval, recSeconds=0, isRecording=false;
+let recognizedText = '';
+
+function toggleRecording() {
+  const script = document.getElementById('scriptInput').value.trim();
+  if(!script){ alert('まず読む文章を入力してください。'); return; }
+  if(isRecording) stopRec(); else startRec();
+}
+
+async function startRec() {
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('results').classList.add('hidden');
+  recognizedText = '';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    chunks=[];
+    mediaRecorder=new MediaRecorder(stream);
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    mediaRecorder.onstop=processAudio;
+    mediaRecorder.start(100);
+
+    // Web Speech API for recognition
+    if('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recog = new SR();
+      recog.lang = 'en-US';
+      recog.continuous = true;
+      recog.interimResults = false;
+      recog.onresult = e => {
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          if(e.results[i].isFinal) recognizedText += e.results[i][0].transcript + ' ';
+        }
+      };
+      recog.onerror = () => {};
+      recog.start();
+      window._speechRecog = recog;
+    }
+
+    isRecording=true; recSeconds=0;
+    const btn=document.getElementById('recBtn');
+    btn.classList.add('recording');
+    btn.querySelector('.btn-icon').textContent='⏹';
+    btn.querySelector('.btn-label').textContent='停止';
+    document.getElementById('timerRow').classList.remove('hidden');
+    timerInterval=setInterval(()=>{
+      recSeconds++;
+      const m=Math.floor(recSeconds/60),s=String(recSeconds%60).padStart(2,'0');
+      document.getElementById('timerDisplay').textContent=`${m}:${s}`;
+    },1000);
+  } catch(e) { showError('マイクにアクセスできませんでした。'); }
+}
+
+function stopRec() {
+  if(window._speechRecog){ try{window._speechRecog.stop();}catch(e){} }
+  if(mediaRecorder?.state==='recording')mediaRecorder.stop();
+  mediaRecorder?.stream?.getTracks().forEach(t=>t.stop());
+  isRecording=false; clearInterval(timerInterval);
+  const btn=document.getElementById('recBtn');
+  btn.classList.remove('recording');
+  btn.querySelector('.btn-icon').textContent='🎤';
+  btn.querySelector('.btn-label').textContent='録音';
+  document.getElementById('timerRow').classList.add('hidden');
+  document.getElementById('analyzingMsg').classList.remove('hidden');
+}
+
+async function processAudio() {
+  // Wait a moment for speech recognition to finalize
+  await new Promise(r=>setTimeout(r,800));
+  try {
+    const blob=new Blob(chunks,{type:'audio/webm'});
+    const arrayBuf=await blob.arrayBuffer();
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const decoded=await ctx.decodeAudioData(arrayBuf);
+    const result=analyzeAudio(decoded.getChannelData(0),decoded.sampleRate);
+    document.getElementById('analyzingMsg').classList.add('hidden');
+    renderResults(result);
+  } catch(e) {
+    document.getElementById('analyzingMsg').classList.add('hidden');
+    showError('解析に失敗しました: '+e.message);
+  }
+}
+
+// ===================== SCRIPT INPUT → PREVIEW =====================
+document.getElementById('scriptInput').addEventListener('input', function() {
+  const text = this.value.trim();
+  if(!text){ document.getElementById('vowelPreview').classList.add('hidden'); return; }
+  document.getElementById('scriptHighlighted').innerHTML = buildHighlightedScript(text);
+  document.getElementById('vowelPreview').classList.remove('hidden');
+});
+
+function setSample(text) {
+  document.getElementById('scriptInput').value = text;
+  document.getElementById('scriptInput').dispatchEvent(new Event('input'));
+}
+
+// ===================== RENDER =====================
+function renderResults(d) {
+  const intended = document.getElementById('scriptInput').value.trim();
+  const heard = recognizedText.trim() || '（認識できませんでした）';
+  const gender=document.getElementById('genderSel').value;
+  const age=document.getElementById('ageInput').value;
+  const hasRef=gender&&age;
+  const refF0=gender==='female'?{min:165,max:255}:{min:85,max:155};
+
+  // --- Recognition diff ---
+  document.getElementById('intendedText').textContent = intended;
+  document.getElementById('heardText').textContent = heard;
+
+  const diff = wordDiff(intended, heard);
+  let diffHTML = '<div class="diff-section">';
+  if(diff.missed.length||diff.extra.length||diff.correct.length) {
+    diffHTML += '<div class="diff-label">単語レベルの比較</div><div class="diff-list">';
+    diff.correct.forEach(w => diffHTML += `<span class="diff-chip ok">✓ ${w}</span>`);
+    diff.missed.forEach(w => diffHTML += `<span class="diff-chip miss">✗ ${w}</span>`);
+    diff.extra.forEach(w => diffHTML += `<span class="diff-chip extra">+ ${w}</span>`);
+    diffHTML += '</div>';
+    if(diff.missed.length) {
+      diffHTML += `<div style="margin-top:8px;font-size:12px;color:#a05040">`;
+      diffHTML += `⚠️ <b>${diff.missed.join(', ')}</b> が認識されませんでした。これらの語の発音を重点的に練習しましょう。</div>`;
+    }
+  }
+  diffHTML += '</div>';
+  document.getElementById('diffSection').innerHTML = diffHTML;
+
+  // --- Score ---
+  // Add recognition accuracy to score
+  const totalWords = intended.toLowerCase().replace(/[^a-z\s]/g,'').trim().split(/\s+/).filter(Boolean).length;
+  const correctWords = diff.correct.length;
+  const recogScore = totalWords ? Math.round((correctWords/totalWords)*100) : (heard.includes('認識') ? 0 : 100);
+  const blendedScore = Math.round((d.score * 0.5) + (recogScore * 0.5));
+
+  drawScoreRing(blendedScore);
+  document.getElementById('scoreMsg').textContent =
+    blendedScore>=80?'✨ 素晴らしい発音です！':blendedScore>=60?'👍 よく伝わっています':blendedScore>=40?'💡 もう少し練習しましょう':'🔁 もう一度試してみてください';
+
+  let refBadge='';
+  if(hasRef){
+    const ok=d.avgF0>=refF0.min&&d.avgF0<=refF0.max;
+    refBadge=`<span style="font-size:11px;margin-left:6px;color:${ok?'#5a9a6a':'#c07050'}">(${gender==='female'?'女性':'男性'}基準 ${refF0.min}–${refF0.max}Hz)</span>`;
+  }
+  document.getElementById('scoreDetail').innerHTML =
+    `🎯 認識スコア：<b>${recogScore}%</b>（${correctWords}/${totalWords} 語）<br>`+
+    `🎵 平均ピッチ：<b>${d.avgF0} Hz</b>${refBadge}<br>`+
+    `⏱ 録音時間：<b>${d.duration.toFixed(1)}秒</b>`;
+
+  // --- Formant scatter ---
+  const highlightedVowels = extractVowelsFromText(intended);
+  drawScatter(d.ts, highlightedVowels);
+  renderVowelLegend(highlightedVowels);
+
+  // --- Timeline ---
+  drawTimeline(d.ts);
+
+  // --- Metrics ---
+  const metrics = [
+    ['認識正答率',''+recogScore+'%','入力した文章のうち正しく認識された語の割合'],
+    ['未認識語',diff.missed.length?diff.missed.join(', '):'なし','認識されなかった単語'],
+    ['基本周波数（平均）',d.avgF0+' Hz','声帯の1秒あたりの振動数'],
+    ['F0 レンジ',d.minF0+'–'+d.maxF0+' Hz','声の高低の幅'],
+    ['ジッター',d.jitter+'%','3%以下が安定的'],
+    ['平均F1',d.f1Avg+' Hz','口の開き具合'],
+    ['平均F2',d.f2Avg+' Hz','舌の前後位置'],
+  ];
+  document.getElementById('metricsBody').innerHTML=metrics.map(([n,v,desc])=>`
+    <div class="metric-row">
+      <div class="metric-top"><span class="metric-name">${n}</span><span class="metric-val">${v}</span></div>
+      <div class="metric-desc">${desc}</div>
+    </div>`).join('');
+
+  // --- Hints ---
+  const hints=[];
+  if(diff.missed.length) hints.push(`<b>${diff.missed.join(', ')}</b> が認識されませんでした。単語をよりはっきり、区切って発音してみましょう。`);
+  if(Number(d.jitter)>3) hints.push('声のジッター（揺れ）が高めです。リラックスして深呼吸してから話すと安定します。');
+  if(hasRef&&d.avgF0<refF0.min) hints.push('ピッチが基準より低めです。姿勢を正して、胸を開いて発声するとよいかもしれません。');
+  if(hasRef&&d.avgF0>refF0.max) hints.push('ピッチが基準より高めです。喉をリラックスさせ、低めのトーンを意識してみましょう。');
+  if(blendedScore>=80) hints.push('全体的に非常によい発音です！この調子で続けましょう。');
+  hints.push('フォルマントマップで点が英語の目標母音エリアに近いほど、ネイティブらしい発音に近づいています。');
+  document.getElementById('hintsBody').innerHTML=`<div class="hint-text">${hints.map(h=>`<p>• ${h}</p>`).join('')}</div>`;
+
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ===================== DRAWING =====================
+function drawScoreRing(score) {
+  const c=document.getElementById('scoreCanvas'),ctx=c.getContext('2d');
+  const W=120,H=120,cx=60,cy=60,r=48;
+  ctx.clearRect(0,0,W,H);
+  const color=score>=80?'#6db87a':score>=60?'#e0a850':'#e07060';
+  ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#e8d5c0';ctx.lineWidth=9;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+2*Math.PI*(score/100));
+  ctx.strokeStyle=color;ctx.lineWidth=9;ctx.lineCap='round';ctx.stroke();
+  ctx.fillStyle='#5a3e2b';ctx.font='bold 26px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(score,cx,cy-7);
+  ctx.fillStyle='#9a7060';ctx.font='11px sans-serif';ctx.fillText('/100',cx,cy+12);
+}
+
+function drawScatter(data, highlightedVowels) {
+  const c=document.getElementById('scatterCanvas'),ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  const pad={top:28,right:18,bottom:44,left:52};
+  const f1R=[200,1000],f2R=[600,3200];
+  const toX=f2=>pad.left+(1-(f2-f2R[0])/(f2R[1]-f2R[0]))*(W-pad.left-pad.right);
+  const toY=f1=>pad.top+((f1-f1R[0])/(f1R[1]-f1R[0]))*(H-pad.top-pad.bottom);
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#fdf8f3');bg.addColorStop(1,'#f5ede2');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='#e8d5c0';ctx.lineWidth=0.7;
+  for(let f1=200;f1<=1000;f1+=200){const y=toY(f1);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();}
+  for(let f2=600;f2<=3200;f2+=400){const x=toX(f2);ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,H-pad.bottom);ctx.stroke();}
+
+  // Draw all vowels
+  ALL_VOWELS.forEach(v=>{
+    if(v.f1<f1R[0]||v.f1>f1R[1]||v.f2<f2R[0]||v.f2>f2R[1])return;
+    const x=toX(v.f2),y=toY(v.f1);
+    const isHL=highlightedVowels.has(v.symbol);
+    const r=isHL?26:16;
+    // Fill
+    ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);
+    ctx.fillStyle=isHL?v.color+'44':v.color+'22';ctx.fill();
+    // Border
+    ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);
+    ctx.strokeStyle=isHL?v.color:v.color+'88';
+    ctx.lineWidth=isHL?2.5:1;ctx.stroke();
+    // Label
+    ctx.fillStyle=v.lang==='en'?'#3060a0':'#a05010';
+    ctx.font=isHL?`bold 12px ${v.lang==='en'?'serif':'sans-serif'}`:`10px ${v.lang==='en'?'serif':'sans-serif'}`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(v.symbol,x,y-(v.lang==='en'?2:0));
+    if(isHL){
+      ctx.fillStyle='#888';ctx.font='9px sans-serif';
+      ctx.fillText(v.example,x,y+12);
+    }
+  });
+
+  // Data points
+  data.forEach((dp,i)=>{
+    if(!dp.f1||!dp.f2)return;
+    const x=toX(dp.f2),y=toY(dp.f1);
+    const p=i/data.length;
+    ctx.beginPath();ctx.arc(x,y,4.5,0,2*Math.PI);
+    ctx.fillStyle=`rgba(${Math.round(180-p*80)},${Math.round(100+p*40)},80,0.75)`;ctx.fill();
+    ctx.strokeStyle='rgba(100,60,20,0.3)';ctx.lineWidth=0.5;ctx.stroke();
+  });
+
+  // Axes
+  ctx.fillStyle='#8b6955';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('← F2 (Hz) →',W/2,H-5);
+  ctx.save();ctx.translate(13,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('← F1 (Hz) →',0,0);ctx.restore();
+  ctx.fillStyle='#6b5040';ctx.font='10px sans-serif';ctx.textAlign='right';
+  for(let f1=200;f1<=1000;f1+=200)ctx.fillText(f1,pad.left-4,toY(f1)+4);
+  ctx.textAlign='center';
+  for(let f2=600;f2<=3200;f2+=400)ctx.fillText(f2,toX(f2),H-pad.bottom+13);
+
+  // Legend top-right
+  ctx.font='10px sans-serif';ctx.textAlign='left';
+  ctx.fillStyle='#3060a0';ctx.fillText('EN vowel',W-pad.right-55,pad.top+10);
+  ctx.fillStyle='#a05010';ctx.fillText('JP 母音',W-pad.right-55,pad.top+22);
+  ctx.fillStyle='rgba(160,120,60,0.8)';ctx.fillText('● your voice',W-pad.right-55,pad.top+34);
+}
+
+function renderVowelLegend(highlightedVowels) {
+  if(!highlightedVowels.size){document.getElementById('vowelLegend').innerHTML='';return;}
+  const items=ALL_VOWELS.filter(v=>highlightedVowels.has(v.symbol));
+  document.getElementById('vowelLegend').innerHTML=
+    '<div style="font-size:11px;color:#b0806a;font-weight:600;margin-bottom:4px;width:100%">① に含まれる母音（ハイライト中）</div>'+
+    items.map(v=>`<div class="vl-item"><div class="vl-dot" style="background:${v.color}"></div>${v.symbol} <span style="color:#aaa">${v.example}</span></div>`).join('');
+}
+
+function drawTimeline(data) {
+  const c=document.getElementById('timelineCanvas'),ctx=c.getContext('2d');
+  const W=c.width,H=c.height;
+  const pad={top:30,right:78,bottom:34,left:48};
+  const maxT=data.length?data[data.length-1].t:1;
+  const freqMax=3800;
+  const toX=t=>pad.left+(t/maxT)*(W-pad.left-pad.right);
+  const toY=f=>pad.top+(1-Math.min(f,freqMax)/freqMax)*(H-pad.top-pad.bottom);
+  ctx.clearRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#f3f0fa');bg.addColorStop(1,'#e8e0f5');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#d8ccec';ctx.lineWidth=0.7;
+  [500,1000,1500,2000,2500,3000,3500].forEach(f=>{
+    const y=toY(f);ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+    ctx.fillStyle='#9070b0';ctx.font='9px sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';
+    ctx.fillText(f+'Hz',pad.left-4,y);
+  });
+  const series=[
+    {key:'f0',color:'#e07060',label:'F0'},
+    {key:'f1',color:'#60a0d0',label:'F1'},
+    {key:'f2',color:'#50b870',label:'F2'},
+    {key:'f3',color:'#c070c0',label:'F3'},
+  ];
+  series.forEach(({key,color,label},si)=>{
+    ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=1.8;
+    let started=false;
+    data.forEach(dp=>{
+      const v=dp[key];if(!v||v<50)return;
+      const x=toX(dp.t),y=toY(v);
+      if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    const lx=W-pad.right+10,ly=pad.top+si*22;
+    ctx.fillStyle=color;ctx.fillRect(lx,ly-8,12,8);
+    ctx.fillStyle='#5040a0';ctx.font='11px sans-serif';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    ctx.fillText(label,lx+15,ly);
+  });
+  ctx.fillStyle='#7060a0';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('時間 (秒)',W/2,H-3);
+  for(let i=0;i<=5;i++){
+    const t=(maxT*i)/5;
+    ctx.fillText(t.toFixed(1),toX(t),H-pad.bottom+13);
+  }
+}
+
+// ===================== UI =====================
+function toggleAcc(btn) {
+  btn.querySelector('.acc-arrow').classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+function showError(msg) {
+  const el=document.getElementById('errorBox');
+  el.textContent='⚠️ '+msg;el.classList.remove('hidden');
+}
+</script>
+</body>
+</html>
